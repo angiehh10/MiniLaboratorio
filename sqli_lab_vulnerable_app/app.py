@@ -209,7 +209,6 @@ def search():
         return redirect(url_for("login"))
 
     books     = []
-    raw_query = None
 
     if request.method == "POST":
         term = request.form.get("term", "")
@@ -227,6 +226,7 @@ def search():
         # ---------------------------------------------------
         # V-02: Búsqueda vulnerable también en una sola línea.
         # Payload: %' UNION SELECT id, username, password, role FROM users --
+        # ✅ El ? es un placeholder — SQLite pone el valor de forma segura sin permitir inyección.
         safe_term = f"%{term}%"
         raw_query = "SELECT id, title, author, category FROM books WHERE title LIKE ? OR author LIKE ? OR category LIKE ?"
 
@@ -239,7 +239,7 @@ def search():
 
     # V-06: La consulta SQL cruda se pasa al template y se
     # muestra en pantalla — expone la estructura interna de la BD.
-    return render_template("search.html", books=books, raw_query=raw_query)
+    return render_template("search.html", books=books)
 
 
 @app.route("/admin")
