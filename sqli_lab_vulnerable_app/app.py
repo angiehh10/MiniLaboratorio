@@ -23,6 +23,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
 from pathlib import Path
+from werkzeug.security import generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH  = BASE_DIR / "db" / "lab.db"
@@ -89,9 +90,9 @@ def init_db():
     cur.execute("SELECT COUNT(*) FROM users")
     if cur.fetchone()[0] == 0:
         users = [
-            ("admin",   "Admin123",   "admin"),
-            ("analyst", "Analyst123", "user"),
-            ("student", "Student123", "user"),
+            ("admin", generate_password_hash("Admin123"), "admin"),
+            ("analyst", generate_password_hash("Analyst123"), "user"),
+            ("student", generate_password_hash("Student123"), "user"),
         ]
         cur.executemany(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
@@ -163,20 +164,22 @@ def login():
         # V-01: Consulta vulnerable en UNA SOLA LÍNEA para que el comentario
         # SQL (--) funcione correctamente en SQLite y el payload surta efecto.
         # Payload de ejemplo: usuario = admin' --  / password = (cualquier cosa)
-        query = f"SELECT id, username, role FROM users WHERE username = '{username}' AND password = '{password}'"
-
+        
         conn = get_connection()
         try:
-            user = conn.execute(query).fetchone()
-        except Exception as e:
-            # El error de SQLite se muestra directamente — también
-            # es información sensible que no debe exponerse.
-            flash(f"Error en la base de datos: {e}", "error")
+            user = conn.execute(
+                "SELECT * FROM users WHERE username = ?",
+                (username,)
+            ).fetchone()
+        except Exception:
+            flash("Error en la base de datos.", "error")
             conn.close()
-            return render_template("login.html", last_query=query)
+            return render_template("login.html")
         conn.close()
 
-        if user:
+        from werkzeug.security import check_password_hash
+
+        if user and check_password_hash(user["password"], password):
             session["user_id"]  = user["id"]
             session["username"] = user["username"]
             session["role"]     = user["role"]
@@ -184,7 +187,7 @@ def login():
             flash("Inicio de sesión exitoso.", "success")
             return redirect(url_for("dashboard"))
 
-        log_event("LOGIN_FAIL", username, f"query={query}")
+        log_event("LOGIN_FAIL", username)
         flash("Credenciales incorrectas.", "error")
 
     return render_template("login.html")
