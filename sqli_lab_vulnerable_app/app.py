@@ -21,6 +21,7 @@
 """
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from werkzeug.security import generate_password_hash
 import sqlite3
 from pathlib import Path
 
@@ -88,10 +89,11 @@ def init_db():
     # -------------------------------------------------------
     cur.execute("SELECT COUNT(*) FROM users")
     if cur.fetchone()[0] == 0:
+        #Encriptamos las contraseñas para mayor seguridad
         users = [
-            ("admin",   "Admin123",   "admin"),
-            ("analyst", "Analyst123", "user"),
-            ("student", "Student123", "user"),
+            ("admin", generate_password_hash("Admin123"), "admin"),
+            ("analyst", generate_password_hash("Analyst123"), "user"),
+            ("student", generate_password_hash("Student123"), "user"),
         ]
         cur.executemany(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
